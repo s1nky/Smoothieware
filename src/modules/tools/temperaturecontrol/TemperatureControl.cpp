@@ -131,7 +131,7 @@ void TemperatureControl::load_config()
 
     this->designator          = THEKERNEL->config->value(temperature_control_checksum, this->name_checksum, designator_checksum)->by_default(string("T"))->as_string();
 
-    // Max and min temperatures we are not allowed to get over (Safety)
+    // Max and min temperatures we are not allowed to set over (Safety)
     this->max_temp = THEKERNEL->config->value(temperature_control_checksum, this->name_checksum, max_temp_checksum)->by_default(1000)->as_number();
     this->min_temp = THEKERNEL->config->value(temperature_control_checksum, this->name_checksum, min_temp_checksum)->by_default(0)->as_number();
 
@@ -208,12 +208,10 @@ void TemperatureControl::on_gcode_received(void *argument)
             char buf[32]; // should be big enough for any status
             int n = snprintf(buf, sizeof(buf), "%s:%3.1f /%3.1f @%d ", this->designator.c_str(), this->get_temperature(), ((target_temperature <= 0) ? 0.0 : target_temperature), this->o);
             gcode->txt_after_ok.append(buf, n);
-            gcode->mark_as_taken();
             return;
         }
 
         if (gcode->m == 305) { // set or get sensor settings
-            gcode->mark_as_taken();
             if (gcode->has_letter('S') && (gcode->get_value('S') == this->pool_index)) {
                 TempSensor::sensor_options_t args= gcode->get_args();
                 args.erase('S'); // don't include the S
@@ -236,7 +234,7 @@ void TemperatureControl::on_gcode_received(void *argument)
                 if(sensor->get_optional(options)) {
                     for(auto &i : options) {
                         // foreach optional value
-                        gcode->stream->printf("%s(S%d): %c%1.18f\n", this->designator.c_str(), this->pool_index, i.first, i.second);
+                        gcode->stream->printf("%s(S%d): %c %1.18f\n", this->designator.c_str(), this->pool_index, i.first, i.second);
                     }
                 }
             }
@@ -248,7 +246,6 @@ void TemperatureControl::on_gcode_received(void *argument)
         if(this->readonly) return;
 
         if (gcode->m == 301) {
-            gcode->mark_as_taken();
             if (gcode->has_letter('S') && (gcode->get_value('S') == this->pool_index)) {
                 if (gcode->has_letter('P'))
                     setPIDp( gcode->get_value('P') );
@@ -279,10 +276,8 @@ void TemperatureControl::on_gcode_received(void *argument)
                     gcode->stream->printf("\n");
                 }
             }
-            gcode->mark_as_taken();
 
         } else if( ( gcode->m == this->set_m_code || gcode->m == this->set_and_wait_m_code ) && gcode->has_letter('S')) {
-            gcode->mark_as_taken();
             // this only gets handled if it is not controlled by the tool manager or is active in the toolmanager
             this->active = true;
 
